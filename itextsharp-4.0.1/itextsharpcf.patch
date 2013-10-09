@@ -1,0 +1,1230 @@
+--- iTextSharp/text/html/HtmlWriter.cs	Mon Jan 29 12:37:16 2007
++++ iTextSharp/text/html/HtmlWriter.cs	Wed Mar 28 15:12:27 2007
+@@ -424,10 +424,14 @@
+                 Write(HtmlTags.TYPE, Markup.HTML_VALUE_JAVASCRIPT);
+                 os.WriteByte(GT);
+                 AddTabs(2);
+-                Write(Encoding.ASCII.GetString(BEGINCOMMENT) + "\n");
++				// MASC 20070307.
++				// CF compatibility patch
++                Write(Encoding.ASCII.GetString(BEGINCOMMENT,0,BEGINCOMMENT.Length) + "\n");
+                 Write(header.Content);
+                 AddTabs(2);
+-                Write("//" + Encoding.ASCII.GetString(ENDCOMMENT));
++				// MASC 20070307.
++				// CF compatibility patch
++                Write("//" + Encoding.ASCII.GetString(ENDCOMMENT,0,ENDCOMMENT.Length));
+                 AddTabs(2);
+                 WriteEnd(HtmlTags.SCRIPT);
+             }
+--- iTextSharp/text/pdf/codec/BmpImage.cs	Mon Sep 25 12:22:42 2006
++++ iTextSharp/text/pdf/codec/BmpImage.cs	Wed Mar 28 15:30:06 2007
+@@ -222,14 +222,18 @@
+                 }
+             }
+         }
+-
+         
+         protected void Process(Stream stream, bool noHeader) {
++// MASC 20070308. CF compatibility patch: .NET CF does not support BufferedStream
++#if !NETCF
+             if (noHeader || stream is BufferedStream) {
++#endif
+                 inputStream = stream;
++#if !NETCF
+             } else {
+                 inputStream = new BufferedStream(stream);
+             }
++#endif
+             if (!noHeader) {
+                 // Start File Header
+                 if (!(ReadUnsignedByte(inputStream) == 'B' &&
+--- iTextSharp/text/pdf/codec/GifImage.cs	Wed Nov 02 12:59:48 2005
++++ iTextSharp/text/pdf/codec/GifImage.cs	Fri Mar 23 09:30:48 2007
+@@ -191,7 +191,12 @@
+         }
+         
+         internal void Process(Stream isp) {
++// MASC 20070308. CF compatibility patch. CF does not support BufferedStream
++#if !NETCF
+             inp = new BufferedStream(isp);
++#else		
++			inp = isp;
++#endif
+             ReadHeader();
+             ReadContents();
+             if (frames.Count == 0)
+--- iTextSharp/text/pdf/FdfReader.cs	Mon Jun 13 02:11:34 2005
++++ iTextSharp/text/pdf/FdfReader.cs	Thu Mar 08 10:21:49 2007
+@@ -189,13 +189,17 @@
+                     return vs.ToUnicodeString();
+                 try {
+                     if (encoding.Equals(PdfName.SHIFT_JIS))
+-                        return Encoding.GetEncoding(932).GetString(b);
++						// MASC 20070308. CF compatibility patch
++                        return Encoding.GetEncoding(932).GetString(b,0,b.Length);
+                     else if (encoding.Equals(PdfName.UHC))
+-                        return Encoding.GetEncoding(949).GetString(b);
++						// MASC 20070308. CF compatibility patch
++                        return Encoding.GetEncoding(949).GetString(b,0,b.Length);
+                     else if (encoding.Equals(PdfName.GBK))
+-                        return Encoding.GetEncoding(936).GetString(b);
++						// MASC 20070308. CF compatibility patch
++                        return Encoding.GetEncoding(936).GetString(b,0,b.Length);
+                     else if (encoding.Equals(PdfName.BIGFIVE))
+-                        return Encoding.GetEncoding(950).GetString(b);
++						// MASC 20070308. CF compatibility patch
++                        return Encoding.GetEncoding(950).GetString(b,0,b.Length);
+                 }
+                 catch  {
+                 }
+--- iTextSharp/text/pdf/PdfContentByte.cs	Fri Feb 09 16:34:38 2007
++++ iTextSharp/text/pdf/PdfContentByte.cs	Wed Mar 28 15:13:40 2007
+@@ -2816,10 +2816,14 @@
+             prs.AddDefaultColor(name, obj);
+         }
+ 
++// MASC 20070307.
++// Matrix class is unsupported in CF, thus not supporting this method yet
++#if !NETCF
+         public void Transform(System.Drawing.Drawing2D.Matrix tx) {
+             float[] c = tx.Elements;
+             ConcatCTM(c[0], c[1], c[2], c[3], c[4], c[5]);
+         }
++#endif
+ 
+         /**
+         * Begins a marked content sequence. This sequence will be tagged with the structure <CODE>struc</CODE>.
+--- iTextSharp/text/pdf/PdfEncodings.cs	Mon Feb 05 16:21:40 2007
++++ iTextSharp/text/pdf/PdfEncodings.cs	Thu Mar 08 10:17:44 2007
+@@ -242,7 +242,8 @@
+             enc = new UnicodeEncoding(marker ? big : false, false);
+         if (enc != null)
+             return enc.GetString(bytes, offset, bytes.Length - offset);
+-        return IanaEncodings.GetEncodingEncoding(encoding).GetString(bytes);
++		// MASC 20070308. CF compatibility patch
++        return IanaEncodings.GetEncodingEncoding(encoding).GetString(bytes,0,bytes.Length);
+     }
+ 
+     /** Checks is <CODE>text</CODE> only has PdfDocEncoding characters.
+--- iTextSharp/text/pdf/PdfPages.cs	Mon Jun 20 13:29:24 2005
++++ iTextSharp/text/pdf/PdfPages.cs	Wed Mar 28 14:55:11 2007
+@@ -128,7 +128,13 @@
+                     top.Put(PdfName.COUNT, new PdfNumber(thisLeaf));
+                     PdfArray kids = new PdfArray();
+                     ArrayList intern = kids.ArrayList;
+-                    intern.AddRange(tPages.GetRange(p * stdCount, count));
++					// MASC 20070307.
++					// CF compatibility patch
++#if !NETCF
++					intern.AddRange(tPages.GetRange(p * stdCount, count));
++#else
++					intern.AddRange(ArrayListEx.GetRange( tPages, p * stdCount, count ));
++#endif
+                     top.Put(PdfName.KIDS, kids);
+                     if (tParents.Count > 1) {
+                         if ((p % leafSize) == 0)
+--- iTextSharp/text/pdf/PdfReader.cs	Fri Feb 09 16:34:38 2007
++++ iTextSharp/text/pdf/PdfReader.cs	Wed Mar 28 15:13:56 2007
+@@ -917,7 +917,15 @@
+         }
+         
+         protected internal void ReadDocObjPartial() {
+-            xrefObj = ArrayList.Repeat(null, xref.Length / 2);
++            xrefObj = 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++				ArrayList.Repeat(
++#else
++				ArrayListEx.Repeat(
++#endif
++					null, xref.Length / 2
++				);
+             ReadDecryptedDocObj();
+             if (objStmToOffset != null) {
+                 int[] keys = objStmToOffset.GetKeys();
+@@ -1022,7 +1030,15 @@
+         
+         protected internal void ReadDocObj() {
+             ArrayList streams = new ArrayList();
+-            xrefObj = ArrayList.Repeat(null, xref.Length / 2);
++            xrefObj = 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++				ArrayList.Repeat(
++#else
++				ArrayListEx.Repeat(
++#endif
++					null, xref.Length / 2
++				);
+             for (int k = 2; k < xref.Length; k += 2) {
+                 int pos = xref[k];
+                 if (pos <= 0 || xref[k + 1] > 0)
+--- iTextSharp/text/pdf/TrueTypeFont.cs	Tue Oct 03 18:49:34 2006
++++ iTextSharp/text/pdf/TrueTypeFont.cs	Wed Mar 28 15:16:32 2007
+@@ -640,7 +640,9 @@
+         protected string ReadStandardString(int length) {
+             byte[] buf = new byte[length];
+             rf.ReadFully(buf);
+-            return System.Text.Encoding.GetEncoding(1252).GetString(buf);
++			// MASC 20070307.
++			// CF compatibility patch
++            return System.Text.Encoding.GetEncoding(1252).GetString(buf,0,buf.Length);
+         }
+     
+         /** Reads a Unicode <CODE>string</CODE> from the font file. Each character is
+--- iTextSharp/text/pdf/TrueTypeFontSubSet.cs	Thu Feb 23 23:06:58 2006
++++ iTextSharp/text/pdf/TrueTypeFontSubSet.cs	Wed Mar 21 21:31:37 2007
+@@ -383,7 +383,8 @@
+         protected string ReadStandardString(int length) {
+             byte[] buf = new byte[length];
+             rf.ReadFully(buf);
+-            return System.Text.Encoding.GetEncoding(1252).GetString(buf);
++			// MASC 20070308. CF compatibility patch
++            return System.Text.Encoding.GetEncoding(1252).GetString(buf,0,buf.Length);
+         }
+     
+         protected void WriteFontShort(int n) {
+--- iTextSharp/text/rtf/document/output/RtfDiskCache.cs	Tue Jul 05 01:51:36 2005
++++ iTextSharp/text/rtf/document/output/RtfDiskCache.cs	Fri Mar 23 11:59:54 2007
+@@ -52,6 +52,9 @@
+ 
+ namespace iTextSharp.text.rtf.document.output {
+ 
++	// MASC 20070307.
++	// BufferedStream is used in this class, which is not supported in CF
++	// Using plain FileStream for CF builds instead
+     /**
+     * The RtfFileCache is a RtfDataCache that uses a temporary file
+     * to store the rtf document data. Not so fast, but doesn't use any
+@@ -65,7 +68,11 @@
+         /**
+         * The BufferedOutputStream that stores the cache data.
+         */
++#if !NETCF
+         private BufferedStream data = null;
++#else
++		private FileStream data = null;
++#endif
+         /**
+         * The temporary file to store the data in.
+         */
+@@ -78,7 +85,12 @@
+         */
+         public RtfDiskCache() {
+             this.tempFile = Path.GetTempFileName();
+-            this.data = new BufferedStream(new FileStream(tempFile, FileMode.Create));
++			FileStream filestream = new FileStream(tempFile, FileMode.Create);
++#if !NETCF
++            this.data = new BufferedStream( filestream );
++#else
++			this.data = filestream;
++#endif
+         }
+ 
+         /**
+@@ -93,7 +105,12 @@
+         */
+         public void WriteTo(Stream target) {
+             this.data.Close();
+-            BufferedStream tempIn = new BufferedStream(new FileStream(this.tempFile, FileMode.Open));
++			FileStream filestream = new FileStream(this.tempFile, FileMode.Open);
++#if !NETCF
++            BufferedStream tempIn = new BufferedStream( filestream );
++#else
++			FileStream tempIn = filestream;
++#endif
+             byte[] buffer = new byte[8192];
+             int bytesRead = -1;
+             while ((bytesRead = tempIn.Read(buffer, 0, buffer.Length)) > 0) {
+--- iTextSharp/text/xml/simpleparser/SimpleXMLParser.cs	Mon Feb 05 16:21:42 2007
++++ iTextSharp/text/xml/simpleparser/SimpleXMLParser.cs	Thu Mar 08 10:17:24 2007
+@@ -131,7 +131,9 @@
+                         break;
+                     bi.WriteByte((byte)c);
+                 }
+-                decl = Encoding.GetEncoding(37).GetString(bi.ToArray());//cp037 ebcdic
++				// MASC 20070308. CF compatibility patch
++				byte[] data = bi.ToArray();
++                decl = Encoding.GetEncoding(37).GetString(data,0,data.Length);//cp037 ebcdic
+             }
+             if (decl != null) {
+                 decl = GetDeclaredEncoding(decl);
+--- iTextSharp/text/Color.cs	Mon Sep 04 14:30:46 2006
++++ iTextSharp/text/Color.cs	Fri Mar 23 09:30:46 2007
+@@ -40,7 +40,13 @@
+         /// <param name="blue">The blue component value for the new Color structure. Valid values are 0 through 255.</param>
+         /// <param name="alpha">The transparency component value for the new Color structure. Valid values are 0 through 255.</param>
+         public Color(int red, int green, int blue, int alpha) {
++// MASC 20070307. 
++// We do not support alpha in CF
++#if !NETCF
+             color = System.Drawing.Color.FromArgb(alpha, red, green, blue);
++#else
++			color = System.Drawing.Color.FromArgb(red, green, blue);
++#endif
+         }
+ 
+         /// <summary>
+@@ -61,7 +67,13 @@
+         /// <param name="blue">The blue component value for the new Color structure. Valid values are 0 through 1.</param>
+         /// <param name="alpha">The transparency component value for the new Color structure. Valid values are 0 through 1.</param>
+         public Color(float red, float green, float blue, float alpha) {
++// MASC 20070307. 
++// We do not support alpha in CF
++#if !NETCF
+             color = System.Drawing.Color.FromArgb((int)(alpha * 255 + .5), (int)(red * 255 + .5), (int)(green * 255 + .5), (int)(blue * 255 + .5));
++#else
++            color = System.Drawing.Color.FromArgb((int)(red * 255 + .5), (int)(green * 255 + .5), (int)(blue * 255 + .5));
++#endif
+         }
+ 
+         public Color(int argb) {
+--- iTextSharp/text/MarkedSection.cs	Mon Jan 29 12:37:14 2007
++++ iTextSharp/text/MarkedSection.cs	Wed Mar 28 15:26:47 2007
+@@ -219,7 +219,9 @@
+                 StringBuilder buf = new StringBuilder();
+                 for (int i = 0; i < depth; i++) {
+                     buf.Insert(0, ".");
+-                    buf.Insert(0, ((int)((Section)element).numbers[i]));
++					// MASC 20070307. 
++					// CF compatibility patch
++                    buf.Insert(0, ((int)((Section)element).numbers[i]).ToString() );
+                 }
+                 if (buf.Length > 0) buf.Append(" ");
+                 Paragraph result = new Paragraph((Paragraph)(title.element));
+--- iTextSharp/text/Section.cs	Wed Feb 21 12:20:50 2007
++++ iTextSharp/text/Section.cs	Wed Mar 28 15:20:25 2007
+@@ -476,7 +476,9 @@
+                 StringBuilder buf = new StringBuilder(" ");
+                 for (int i = 0; i < depth; i++) {
+                     buf.Insert(0, ".");
+-                    buf.Insert(0, (int)numbers[i]);
++					// MASC 20070307. 
++					// CF compatibility patch
++                    buf.Insert(0, ((int)numbers[i]).ToString() );
+                 }
+                 Paragraph result = new Paragraph(title);
+                 result.Insert(0, new Chunk(buf.ToString(), title.Font));
+--- srcbc/asn1/util/Asn1Dump.cs	Sat Nov 18 11:54:32 2006
++++ srcbc/asn1/util/Asn1Dump.cs	Wed Mar 28 14:53:37 2007
+@@ -42,7 +42,14 @@
+                     Buffer.Append("Sequence");
+                 }
+ 
+-                Buffer.Append(Environment.NewLine);
++                Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif
++				);
+ 
+ 				foreach (object o in ((Asn1Sequence)obj))
+ 				{
+@@ -50,7 +57,14 @@
+                     {
+                         Buffer.Append(tab);
+                         Buffer.Append("Null");
+-                        Buffer.Append(Environment.NewLine);
++                        Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++							Environment.NewLine
++#else
++							EnvironmentEx.NewLine
++#endif					
++						);
+                     }
+                     else if (o is Asn1Object)
+                     {
+@@ -88,13 +102,27 @@
+                     Buffer.Append(" IMPLICIT ");
+                 }
+ 
+-				Buffer.Append(Environment.NewLine);
++				Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				);
+ 
+ 				if (o.IsEmpty())
+                 {
+                     Buffer.Append(tab);
+                     Buffer.Append("EMPTY");
+-                    Buffer.Append(Environment.NewLine);
++                    Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++						Environment.NewLine
++#else
++						EnvironmentEx.NewLine
++#endif					
++					);
+                 }
+                 else
+                 {
+@@ -110,7 +138,14 @@
+ 
+ 				Buffer.Append(indent);
+                 Buffer.Append("BER Set");
+-                Buffer.Append(Environment.NewLine);
++                Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				);
+ 
+ 				foreach (object o in ((Asn1Set)obj))
+ 				{
+@@ -118,7 +153,14 @@
+                     {
+                         Buffer.Append(tab);
+                         Buffer.Append("Null");
+-                        Buffer.Append(Environment.NewLine);
++                        Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++							Environment.NewLine
++#else
++							EnvironmentEx.NewLine
++#endif					
++						);
+                     }
+                     else if (o is Asn1Object)
+                     {
+@@ -138,7 +180,14 @@
+ 
+ 				Buffer.Append(indent);
+                 Buffer.Append("DER Set");
+-                Buffer.Append(Environment.NewLine);
++                Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				);
+ 
+ 				foreach (object o in ((Asn1Set)obj))
+ 				{
+@@ -146,7 +195,14 @@
+                     {
+                         Buffer.Append(tab);
+                         Buffer.Append("Null");
+-                        Buffer.Append(Environment.NewLine);
++                        Buffer.Append(
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++							Environment.NewLine
++#else
++							EnvironmentEx.NewLine
++#endif					
++						);
+                     }
+                     else if (o is Asn1Object)
+                     {
+@@ -162,53 +218,139 @@
+             }
+             else if (obj is DerObjectIdentifier)
+             {
+-                return indent + "ObjectIdentifier(" + ((DerObjectIdentifier)obj).Id + ")" + Environment.NewLine;
++                return indent + "ObjectIdentifier(" + ((DerObjectIdentifier)obj).Id + ")" + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerBoolean)
+             {
+-                return indent + "Boolean(" + ((DerBoolean)obj).IsTrue + ")" + Environment.NewLine;
++                return indent + "Boolean(" + ((DerBoolean)obj).IsTrue + ")" + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerInteger)
+             {
+-                return indent + "Integer(" + ((DerInteger)obj).Value + ")" + Environment.NewLine;
++                return indent + "Integer(" + ((DerInteger)obj).Value + ")" + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerOctetString)
+             {
+-                return indent + obj.ToString() + "[" + ((Asn1OctetString)obj).GetOctets().Length + "] " + Environment.NewLine;
++                return indent + obj.ToString() + "[" + ((Asn1OctetString)obj).GetOctets().Length + "] " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerIA5String)
+             {
+-                return indent + "IA5String(" + ((DerIA5String)obj).GetString() + ") " + Environment.NewLine;
++                return indent + "IA5String(" + ((DerIA5String)obj).GetString() + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerPrintableString)
+             {
+-                return indent + "PrintableString(" + ((DerPrintableString)obj).GetString() + ") " + Environment.NewLine;
++                return indent + "PrintableString(" + ((DerPrintableString)obj).GetString() + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;
+             }
+             else if (obj is DerVisibleString)
+             {
+-                return indent + "VisibleString(" + ((DerVisibleString)obj).GetString() + ") " + Environment.NewLine;
+-            }
++                return indent + "VisibleString(" + ((DerVisibleString)obj).GetString() + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;            
++			}
+             else if (obj is DerBmpString)
+             {
+-                return indent + "BMPString(" + ((DerBmpString)obj).GetString() + ") " + Environment.NewLine;
+-            }
++                return indent + "BMPString(" + ((DerBmpString)obj).GetString() + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;            
++			}
+             else if (obj is DerT61String)
+             {
+-                return indent + "T61String(" + ((DerT61String)obj).GetString() + ") " + Environment.NewLine;
+-            }
++                return indent + "T61String(" + ((DerT61String)obj).GetString() + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;            
++			}
+             else if (obj is DerUtcTime)
+             {
+-                return indent + "UTCTime(" + ((DerUtcTime)obj).TimeString + ") " + Environment.NewLine;
+-            }
++                return indent + "UTCTime(" + ((DerUtcTime)obj).TimeString + ") " + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;           
++			}
+             else if (obj is DerUnknownTag)
+             {
++				// MASC 20070308. CF compatibility patch
++				byte[] hex = Hex.Encode(((DerUnknownTag)obj).GetData());
+                 return indent + "Unknown " + ((int)((DerUnknownTag)obj).Tag).ToString("X") + " "
+-                    + Encoding.ASCII.GetString(Hex.Encode(((DerUnknownTag)obj).GetData())) + Environment.NewLine;
+-            }
++                    + Encoding.ASCII.GetString(hex,0,hex.Length) + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++						Environment.NewLine
++#else
++						EnvironmentEx.NewLine
++#endif					
++				;            
++			}
+             else
+             {
+-                return indent + obj.ToString() + Environment.NewLine;
+-            }
++                return indent + obj.ToString() + 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++					Environment.NewLine
++#else
++					EnvironmentEx.NewLine
++#endif					
++				;            
++			}
+         }
+ 
+         /**
+--- srcbc/asn1/x509/X509Extension.cs	Fri Nov 17 01:03:26 2006
++++ srcbc/asn1/x509/X509Extension.cs	Fri Mar 23 09:30:16 2007
+@@ -66,8 +66,13 @@
+ 				return Asn1Object.FromByteArray(ext.Value.GetOctets());
+ 			}
+ 			catch (Exception e)
+-			{
+-				throw new ArgumentException("can't convert extension", "ext", e);
++			{					
++				// MASC 20070307. CF compatibility patch
++				throw new ArgumentException("can't convert extension", "ext"
++#if !NETCF
++					,e
++#endif
++					);
+ 			}
+ 		}
+ 	}
+--- srcbc/asn1/x509/X509Name.cs	Tue Feb 06 16:34:32 2007
++++ srcbc/asn1/x509/X509Name.cs	Thu Mar 08 10:22:08 2007
+@@ -361,7 +361,9 @@
+                     }
+                     else
+                     {
+-						values.Add("#" + Encoding.ASCII.GetString(Hex.Encode(derValue.ToAsn1Object().GetEncoded())));
++						// MASC 20070308. CF compatibility patch
++						byte[] hex = Hex.Encode(derValue.ToAsn1Object().GetEncoded());
++						values.Add("#" + Encoding.ASCII.GetString(hex,0,hex.Length));
+                     }
+ 
+ 					added.Add(i != 0);
+--- srcbc/asn1/Asn1OctetString.cs	Thu Feb 08 11:53:54 2007
++++ srcbc/asn1/ASN1OctetString.cs	Thu Mar 08 10:23:32 2007
+@@ -129,7 +129,9 @@
+ 
+ 		public override string ToString()
+ 		{
+-			return "#" + Encoding.ASCII.GetString(Hex.Encode(str));
++			// MASC 20070308. CF compatibility patch+
++			byte[] hex = Hex.Encode(str);
++			return "#" + Encoding.ASCII.GetString(str,0,str.Length);
+ 		}
+ 	}
+ }
+--- srcbc/asn1/DerGeneralizedTime.cs	Thu Feb 08 11:53:56 2007
++++ srcbc/asn1/DERGeneralizedTime.cs	Thu Mar 08 10:18:45 2007
+@@ -88,7 +88,8 @@
+             //
+             // explicitly convert to characters
+             //
+-			this.time = Encoding.ASCII.GetString(bytes);
++			// MASC 20070308. CF compatibility patch
++			this.time = Encoding.ASCII.GetString(bytes,0,bytes.Length);
+         }
+ 
+ 		/**
+--- srcbc/asn1/DerGeneralString.cs	Thu Feb 08 11:53:56 2007
++++ srcbc/asn1/DERGeneralString.cs	Thu Mar 08 10:21:16 2007
+@@ -36,7 +36,8 @@
+ 
+         public DerGeneralString(
+ 			byte[] str)
+-			: this(Encoding.ASCII.GetString(str))
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length))
+         {
+         }
+ 
+--- srcbc/asn1/DerIA5String.cs	Thu Feb 08 11:53:56 2007
++++ srcbc/asn1/DERIA5String.cs	Thu Mar 08 10:06:13 2007
+@@ -58,7 +58,8 @@
+          */
+         public DerIA5String(
+             byte[] str)
+-			: this(Encoding.ASCII.GetString(str), false)
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length), false)
+         {
+         }
+ 
+--- srcbc/asn1/DerNumericString.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DerNumericString.cs	Thu Mar 08 00:38:32 2007
+@@ -58,7 +58,9 @@
+ 		 */
+ 		public DerNumericString(
+ 			byte[] str)
+-			: this(Encoding.ASCII.GetString(str), false)
++			// MASC 20070307.
++			// CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length), false)
+ 		{
+ 		}
+ 
+--- srcbc/asn1/DerPrintableString.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DERPrintableString.cs	Thu Mar 08 10:03:42 2007
+@@ -58,7 +58,8 @@
+          */
+         public DerPrintableString(
+             byte[] str)
+-			: this(Encoding.ASCII.GetString(str), false)
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length), false)
+         {
+         }
+ 
+--- srcbc/asn1/DerT61String.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DERT61String.cs	Thu Mar 08 10:12:50 2007
+@@ -58,7 +58,8 @@
+          */
+         public DerT61String(
+             byte[] str)
+-			: this(Encoding.ASCII.GetString(str))
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length))
+         {
+         }
+ 
+--- srcbc/asn1/DerUTCTime.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DERUTCTime.cs	Thu Mar 08 10:03:32 2007
+@@ -91,7 +91,8 @@
+             //
+             // explicitly convert to characters
+             //
+-			this.time = Encoding.ASCII.GetString(bytes);
++			// MASC 20070308. CF compatibility patch
++			this.time = Encoding.ASCII.GetString(bytes,0,bytes.Length);
+         }
+ 
+ //		public DateTime ToDateTime()
+--- srcbc/asn1/DerUTF8String.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DERUTF8String.cs	Thu Mar 08 10:12:23 2007
+@@ -58,7 +58,8 @@
+          */
+         internal DerUtf8String(
+             byte[] str)
+-			: this(Encoding.UTF8.GetString(str))
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.UTF8.GetString(str,0,str.Length))
+         {
+         }
+ 
+--- srcbc/asn1/DerVisibleString.cs	Thu Feb 08 11:53:58 2007
++++ srcbc/asn1/DERVisibleString.cs	Thu Mar 08 10:18:54 2007
+@@ -58,7 +58,8 @@
+          */
+         public DerVisibleString(
+             byte[] str)
+-			: this(Encoding.ASCII.GetString(str))
++			// MASC 20070308. CF compatibility patch
++			: this(Encoding.ASCII.GetString(str,0,str.Length))
+         {
+         }
+ 
+--- srcbc/bcpg/ArmoredOutputStream.cs	Wed Nov 29 00:18:36 2006
++++ srcbc/bcpg/ArmoredOutputStream.cs	Wed Mar 28 14:52:39 2007
+@@ -85,7 +85,13 @@
+         private bool            clearText = false;
+         private bool            newLine = false;
+ 
+-        private string          nl = System.Environment.NewLine;
++        private string          nl = 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++			System.Environment.NewLine;
++#else
++			EnvironmentEx.NewLine;
++#endif
+ 
+         private string          type;
+         private string          headerStart = "-----BEGIN PGP ";
+--- srcbc/bcpg/UserIdPacket.cs	Sat Dec 16 10:50:16 2006
++++ srcbc/bcpg/UserIdPacket.cs	Thu Mar 08 10:17:54 2007
+@@ -25,7 +25,8 @@
+ 
+ 		public string GetId()
+         {
+-			return Encoding.UTF8.GetString(idData);
++			// MASC 20070308. CF compatibility patch
++			return Encoding.UTF8.GetString(idData,0,idData.Length);
+         }
+ 
+ 		public override void Encode(
+--- srcbc/cms/CMSTypedStream.cs	Tue Jan 16 09:01:16 2007
++++ srcbc/cms/CMSTypedStream.cs	Fri Mar 23 09:30:17 2007
+@@ -68,7 +68,12 @@
+                 Stream	inStream,
+ 				int		bufSize)
+             {
++// MASC 20070308. CF compatibility patch. CF does not support BufferedStream
++#if !NETCF
+ 				_stream = new BufferedStream(inStream, bufSize);
++#else	
++				_stream = inStream;
++#endif
+             }
+ 
+ 			public override int ReadByte()
+--- srcbc/cms/RecipientInformationStore.cs	Tue Jan 16 09:01:16 2007
++++ srcbc/cms/RecipientInformationStore.cs	Fri Mar 23 09:30:17 2007
+@@ -59,7 +59,12 @@
+ 		*/
+ 		public ICollection GetRecipients()
+ 		{
++			// MASC 20070307. CF compatibility patch
++#if !NETCF
+ 			return ArrayList.ReadOnly(all);
++#else
++			return all;
++#endif
+ 		}
+ 
+ 		/**
+@@ -73,7 +78,13 @@
+ 		{
+ 			ArrayList list = (ArrayList) table[selector];
+ 
+-			return list == null ? new ArrayList() : ArrayList.ReadOnly(list);
++			return list == null ? new ArrayList() : 
++				// MASC 20070307. CF compatibility patch
++#if !NETCF
++				ArrayList.ReadOnly(list);
++#else
++				list;
++#endif
+ 		}
+ 	}
+ }
+--- srcbc/cms/SignerInformationStore.cs	Tue Jan 16 09:01:16 2007
++++ srcbc/cms/SignerInformationStore.cs	Fri Mar 23 09:30:18 2007
+@@ -52,7 +52,12 @@
+ 		/// <returns>An ICollection of all signers in the collection</returns>
+         public ICollection GetSigners()
+         {
++			// MASC 20070307. CF compatibility patch
++#if !NETCF
+ 			return ArrayList.ReadOnly(all);
++#else
++			return all;
++#endif
+         }
+ 
+ 		/**
+@@ -66,7 +71,13 @@
+         {
+ 			ArrayList list = (ArrayList) table[selector];
+ 
+-			return list == null ? new ArrayList() : ArrayList.ReadOnly(list);
++			return list == null ? new ArrayList() : 
++				// MASC 20070307. CF compatibility patch
++#if !NETCF
++				ArrayList.ReadOnly(list);
++#else
++				list;
++#endif
+         }
+     }
+ }
+--- srcbc/crypto/encodings/Pkcs1Encoding.cs	Fri Dec 01 14:06:10 2006
++++ srcbc/crypto/encodings/Pkcs1Encoding.cs	Fri Mar 23 09:30:18 2007
+@@ -41,7 +41,10 @@
+ 			string strictProperty = null;
+ 			try
+ 			{
++// MASC 20070308. CF compatibility patch
++#if !NETCF
+ 				strictProperty = Environment.GetEnvironmentVariable(StrictLengthEnabledProperty);
++#endif
+ 			}
+ 			catch (System.Security.SecurityException)
+ 			{
+--- srcbc/crypto/prng/ThreadedSeedGenerator.cs	Wed Jan 17 11:33:24 2007
++++ srcbc/crypto/prng/ThreadedSeedGenerator.cs	Fri Mar 23 09:30:19 2007
+@@ -47,7 +47,12 @@
+ 						{
+ 							Thread.Sleep(1);
+ 						}
++// MASC 20070308. CF compatibility patch
++#if !NETCF
+ 						catch (ThreadInterruptedException)
++#else
++						catch (Exception)
++#endif
+ 						{
+ 							// ignore
+ 						}
+--- srcbc/crypto/CryptoException.cs	Sat Nov 18 11:54:56 2006
++++ srcbc/crypto/CryptoException.cs	Fri Mar 23 09:30:18 2007
+@@ -1,5 +1,9 @@
+ using System;
++// MASC 20070307.
++// CF does not support serialization yet
++#if !NETCF
+ using System.Runtime.Serialization;
++#endif
+ 
+ namespace Org.BouncyCastle.Crypto
+ {
+@@ -24,11 +28,13 @@
+         {
+         }
+ 
++#if !NETCF
+ 		protected CryptoException(
+             SerializationInfo	info,
+             StreamingContext	context)
+ 			: base(info, context)
+         {
+         }
++#endif
+     }
+ }
+--- srcbc/crypto/DataLengthException.cs	Sat Nov 18 11:54:56 2006
++++ srcbc/crypto/DataLengthException.cs	Fri Mar 23 09:30:18 2007
+@@ -1,5 +1,9 @@
+ using System;
++// MASC 20070307.
++// CF does not support serialization yet
++#if !NETCF
+ using System.Runtime.Serialization;
++#endif
+ 
+ namespace Org.BouncyCastle.Crypto
+ {
+@@ -38,11 +42,13 @@
+         {
+         }
+ 
++#if !NETCF
+ 		protected DataLengthException(
+             SerializationInfo	info,
+             StreamingContext	context)
+ 			: base(info, context)
+ 		{
+ 		}
++#endif
+ 	}
+ }
+--- srcbc/crypto/InvalidCipherTextException.cs	Sat Nov 18 11:54:58 2006
++++ srcbc/crypto/InvalidCipherTextException.cs	Fri Mar 23 09:30:18 2007
+@@ -1,5 +1,9 @@
+ using System;
++// MASC 20070307.
++// CF does not support serialization yet
++#if !NETCF
+ using System.Runtime.Serialization;
++#endif
+ 
+ namespace Org.BouncyCastle.Crypto
+ {
+@@ -36,11 +40,13 @@
+         {
+         }
+ 
++#if !NETCF
+         protected InvalidCipherTextException(
+             SerializationInfo	info,
+             StreamingContext	context)
+ 			: base(info, context)
+         {
+         }
++#endif
+     }
+ }
+--- srcbc/ocsp/BasicOCSPRespGenerator.cs	Tue Jan 16 09:01:16 2007
++++ srcbc/ocsp/BasicOCSPRespGenerator.cs	Fri Mar 23 09:30:19 2007
+@@ -197,7 +197,11 @@
+ 			}
+ 			catch (Exception e)
+ 			{
+-				throw new ArgumentException("unknown signing algorithm specified", "signatureName", e);
++				throw new ArgumentException("unknown signing algorithm specified", "signatureName"
++#if !NETCF
++					, e
++#endif
++				);
+ 			}
+ 
+ 			Asn1EncodableVector responses = new Asn1EncodableVector();
+--- srcbc/openpgp/PgpCompressedDataGenerator.cs	Thu Feb 08 11:54:00 2007
++++ srcbc/openpgp/PgpCompressedDataGenerator.cs	Fri Mar 23 09:30:19 2007
+@@ -115,8 +115,13 @@
+ 					dOut = new CBZip2OutputStream(pkOut);
+ 					break;
+ 				default:
++					// MASC 20070307. CF compatibility patch
++#if !NETCF
+ 					// Constructor should guard against this possibility
+ 					throw new ExecutionEngineException();
++#else
++					throw new InvalidOperationException( "Invalid compression algorithm" );
++#endif
+ 			}
+ 		}
+ 
+--- srcbc/openpgp/PgpUtilities.cs	Thu Feb 08 11:54:02 2007
++++ srcbc/openpgp/PgpUtilities.cs	Fri Mar 23 09:30:20 2007
+@@ -355,12 +355,15 @@
+         public static Stream GetDecoderStream(
+             Stream inputStream)
+         {
++// MASC 20070308. CF compatibility patch. CF does not support BufferedStream
++#if !NETCF
+             if (!inputStream.CanSeek)
+             {
+                 int bufSize = System.Math.Max(2000, ReadAhead + 1);
+ 
+ 				inputStream = new BufferedStream(inputStream, bufSize);
+             }
++#endif
+ 
+ 			long markedPos = inputStream.Position;
+ 
+--- srcbc/openssl/PEMWriter.cs	Wed Jan 24 11:49:56 2007
++++ srcbc/openssl/PEMWriter.cs	Thu Mar 08 10:07:32 2007
+@@ -177,9 +177,11 @@
+ 
+ 			byte[] encData = PemUtilities.Crypt(true, keyData, password, dekAlgName, iv);
+ 
++			// MASC 20070308. CF compatibility patch
++			byte[] hex = Hex.Encode(iv);
+ 			WritePemBlock(type, encData,
+ 				"Proc-Type: 4,ENCRYPTED",
+-				"DEK-Info: " + dekAlgName + "," + Encoding.ASCII.GetString(Hex.Encode(iv)));
++				"DEK-Info: " + dekAlgName + "," + Encoding.ASCII.GetString(hex,0,hex.Length));
+ 		}
+ 
+ 		private byte[] EncodePrivateKey(
+--- srcbc/pkcs/Pkcs12Store.cs	Wed Feb 21 12:21:16 2007
++++ srcbc/pkcs/PKCS12Store.cs	Thu Mar 08 10:22:00 2007
+@@ -252,7 +252,9 @@
+ 
+                                 if (localId != null)
+                                 {
+-                                    string name = Encoding.ASCII.GetString(Hex.Encode(localId.GetOctets()));
++									// MASC 20070308. CF compatibility patch
++									byte[] hex = Hex.Encode(localId.GetOctets());
++                                    string name = Encoding.ASCII.GetString(hex,0,hex.Length);
+ 
+                                     if (alias == null)
+                                     {
+@@ -332,7 +334,9 @@
+                                     }
+                                 }
+ 
+-                                string name = Encoding.ASCII.GetString(Hex.Encode(localId.GetOctets()));
++								// MASC 20070308. CF compatibility patch
++								byte[] hex = Hex.Encode(localId.GetOctets());
++                                string name = Encoding.ASCII.GetString(hex,0,hex.Length);
+ 
+                                 if (alias == null)
+                                 {
+@@ -380,7 +384,9 @@
+                                     }
+                                 }
+ 
+-                                string name = Encoding.ASCII.GetString(Hex.Encode(localId.GetOctets()));
++								// MASC 20070308. CF compatibility patch
++								byte[] hex = Hex.Encode(localId.GetOctets());
++                                string name = Encoding.ASCII.GetString(hex,0,hex.Length);
+ 
+                                 if (alias == null)
+                                 {
+@@ -457,10 +463,13 @@
+                 {
+                     if (keyCerts.Count == 0)
+                     {
+-                        string name = Encoding.ASCII.GetString(
++						// MASC 20070308. CF compatibility patch
++						byte[] hex = 
+ 							Hex.Encode(
+ 								new SubjectKeyIdentifier(
+-									SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(publicKey)).GetKeyIdentifier()));
++									SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(publicKey)).GetKeyIdentifier());
++
++                        string name = Encoding.ASCII.GetString( hex,0,hex.Length );
+ 
+                         keyCerts[name] = pkcs12Cert;
+ 
+@@ -473,8 +482,9 @@
+                 {
+                     if (localId != null)
+                     {
+-                        string name = Encoding.ASCII.GetString(
+-							Hex.Encode(localId.GetOctets()));
++						// MASC 20070308. CF compatibility patch
++						byte[] hex = Hex.Encode(localId.GetOctets());
++                        string name = Encoding.ASCII.GetString( hex,0,hex.Length );
+ 
+                         keyCerts[name] = pkcs12Cert;
+                     }
+--- srcbc/security/ParameterUtilities.cs	Wed Feb 21 12:21:18 2007
++++ srcbc/security/ParameterUtilities.cs	Fri Mar 23 09:30:20 2007
+@@ -225,7 +225,12 @@
+ 			}
+ 			catch (Exception e)
+ 			{
+-				throw new ArgumentException("Could not process ASN.1 parameters", "asn1Params", e);
++				throw new ArgumentException("Could not process ASN.1 parameters", "asn1Params"
++// MASC 20070308. CF compatibility patch
++#if !NETCF	
++					,e
++#endif
++				);
+ 			}
+ 
+ 			if (iv != null)
+--- srcbc/security/SecurityUtilityException.cs	Sat Nov 18 11:55:44 2006
++++ srcbc/security/SecurityUtilityException.cs	Fri Mar 23 09:30:20 2007
+@@ -1,5 +1,9 @@
+ using System;
++// MASC 20070307.
++// CF does not support serialization yet
++#if !NETCF
+ using System.Runtime.Serialization;
++#endif
+ 
+ namespace Org.BouncyCastle.Security
+ {
+@@ -30,11 +34,13 @@
+ 
+         }
+ 
++#if !NETCF
+         protected SecurityUtilityException(
+             SerializationInfo info,
+             StreamingContext context) : base(info, context)
+         {
+         }
++#endif
+ 
+     }
+ 
+--- srcbc/util/encoders/Base64.cs	Sun Oct 01 17:19:16 2006
++++ srcbc/util/encoders/Base64.cs	Thu Mar 08 00:45:28 2007
+@@ -72,7 +72,8 @@
+ 		public static byte[] Decode(
+ 			byte[] data)
+ 		{
+-			string s = Encoding.ASCII.GetString(data);
++			// MASC 20070307. CF compatibility patch
++			string s = Encoding.ASCII.GetString(data,0,data.Length);
+ 			return Convert.FromBase64String(s);
+ 
+ //			MemoryStream bOut = new MemoryStream();
+--- srcbc/x509/X509Certificate.cs	Fri Feb 09 16:00:24 2007
++++ srcbc/x509/X509Certificate.cs	Wed Mar 28 14:53:38 2007
+@@ -361,7 +361,12 @@
+ 				entry.Add(gn.Name.ToString());
+ 				result.Add(entry);
+ 			}
++// MASC20070308. CF compatibility patch
++#if !NETCF
+ 			return ArrayList.ReadOnly(result);
++#else
++			return result;
++#endif
+ 		}
+ 
+ 		protected override X509Extensions GetX509Extensions()
+@@ -433,7 +438,14 @@
+ 		public override string ToString()
+ 		{
+ 			StringBuilder buf = new StringBuilder();
+-			string nl = Environment.NewLine;
++			string nl = 
++// MASC 20070308. CF compatibility patch
++#if !NETCF
++				Environment.NewLine
++#else
++				EnvironmentEx.NewLine
++#endif					
++				;
+ 
+ 			buf.Append("  [0]         Version: ").Append(this.Version).Append(nl);
+ 			buf.Append("         SerialNumber: ").Append(this.SerialNumber).Append(nl);
+@@ -446,18 +458,26 @@
+ 
+ 			byte[] sig = this.GetSignature();
+ 
+-			buf.Append("            Signature: ").Append(Encoding.ASCII.GetString(Hex.Encode(sig, 0, 20))).Append(nl);
++			// MASC 20070308. CF compatibility patch
++			{
++				byte[] hex = Hex.Encode(sig, 0, 20);
++				buf.Append("            Signature: ").Append(Encoding.ASCII.GetString(hex,0,hex.Length)).Append(nl);
++			}
+ 			for (int i = 20; i < sig.Length; i += 20)
+ 			{
+ 				if (i < sig.Length - 20)
+ 				{
++					// MASC 20070308. CF compatibility patch
++					byte[] hex = Hex.Encode(sig, i, 20);
+ 					buf.Append("                       ")
+-						.Append(Encoding.ASCII.GetString(Hex.Encode(sig, i, 20))).Append(nl);
++						.Append(Encoding.ASCII.GetString(hex,0,hex.Length)).Append(nl);
+ 				}
+ 				else
+ 				{
++					// MASC 20070308. CF compatibility patch
++					byte[] hex = Hex.Encode(sig, i, sig.Length - i);
+ 					buf.Append("                       ")
+-						.Append(Encoding.ASCII.GetString(Hex.Encode(sig, i, sig.Length - i))).Append(nl);
++						.Append(Encoding.ASCII.GetString(hex,0,hex.Length)).Append(nl);
+ 				}
+ 			}
+ 
+--- srcbc/x509/X509CrlEntry.cs	Mon Jan 15 18:58:12 2007
++++ srcbc/x509/X509CrlEntry.cs	Wed Mar 28 14:52:25 2007
+@@ -125,7 +125,11 @@
+ 		public override string ToString()
+ 		{
+ 			StringBuilder buf = new StringBuilder();
++#if !NETCF
+ 			string nl = Environment.NewLine;
++#else
++			string nl = EnvironmentEx.NewLine;
++#endif
+ 
+ 			buf.Append("      userCertificate: ").Append(this.SerialNumber).Append(nl);
+ 			buf.Append("       revocationDate: ").Append(this.RevocationDate).Append(nl);
+--- srcbc/x509/X509V2CRLGenerator.cs	Sun Jan 14 18:31:16 2007
++++ srcbc/x509/X509V2CRLGenerator.cs	Fri Mar 23 09:30:20 2007
+@@ -140,7 +140,13 @@
+ 			}
+ 			catch (Exception e)
+ 			{
+-				throw new ArgumentException("Unknown signature type requested", "signatureAlgorithm", e);
++// MASC 20070307.
++// CF compatibility patch
++				throw new ArgumentException("Unknown signature type requested", "signatureAlgorithm"
++#if !NETCF
++					, e
++#endif
++				);
+ 			}
+ 
+ 			sigAlgId = X509Utilities.GetSigAlgID(sigOID, signatureAlgorithm);
